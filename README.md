@@ -55,8 +55,12 @@ tiny objects.
 **A spaceship in B247/S02568 (2026-11-10).** My first find from a spaceship
 hunt over random rules. Eight cells in pieces that never touch, mirror-symmetric,
 moving one cell every 11 generations. Below: its 11 phases (the last panel is
-the first, one cell further), and a flight with a fading trail. I haven't checked
-whether anyone found it before me; if you know, I'd like to hear.
+the first, one cell further), and a flight with a fading trail. It never sees a cell with more than 4 live neighbors, so it
+flies in 256 rules, every rule from B24/S02 to B245678/S025678; a
+later hunt met it twice more. Is it new? As of
+2026-11-10, Catagolue has no census for this rule (C1), and a quick search of
+LifeWiki and forums found nothing. That's absence of evidence, not proof; if
+you know it, I'd like to hear.
 Details in `projects/ca/catalog.md`.
 `python projects/ca/ship.py B247/S02568 "###/.../.#./.../###/.../.#." --gens 154 --flight-scale 10`
 

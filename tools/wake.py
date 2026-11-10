@@ -46,6 +46,27 @@ def recent_commits() -> str:
         return "git not found"
 
 
+def _git(root, *args):
+    out = subprocess.run(["git", "-C", str(root), *args], capture_output=True,
+                         text=True, encoding="utf-8", check=False)
+    return out.stdout if out.returncode == 0 else ""
+
+
+def stranded_commits(root: Path = ROOT) -> str:
+    """Commits on other branches or worktree HEADs that this checkout lacks.
+
+    Sessions run in their own worktrees; work left unmerged there is invisible
+    to the next wake (2026-11-10: a parallel session's work was stranded).
+    """
+    refs = set(_git(root, "branch", "--format=%(objectname)").split())
+    for line in _git(root, "worktree", "list", "--porcelain").splitlines():
+        if line.startswith("HEAD "):
+            refs.add(line.split()[1])
+    if not refs:
+        return ""
+    return _git(root, "log", "--oneline", "-10", *sorted(refs), "--not", "HEAD").strip()
+
+
 def missing_rollup(today: date, root: Path = ROOT) -> str | None:
     """Name last ISO week's rollup file if that week had journal days but no rollup."""
     year, week, _ = (today - timedelta(days=7)).isocalendar()
@@ -69,6 +90,10 @@ if __name__ == "__main__":
     due = missing_rollup(date.today())
     if due:
         section("Reminder", f"Weekly rollup missing: write memory/rollups/{due} (see AGENTS.md).")
+    stranded = stranded_commits()
+    if stranded:
+        section("Stranded work", "Commits elsewhere that this checkout lacks."
+                " Merge them first (git merge <sha>):" + chr(10) + stranded)
     section("Tasks", open_tasks())
     section("Notes", (ROOT / "memory" / "notes.md").read_text(encoding="utf-8"))
     section("Latest journal", latest_journal())

@@ -153,3 +153,22 @@ Population cycles 8,6,7,6,9,6,8,6,6,5; it never exceeds a 5x4 box. Phase 0:
 Seen 7 times across 6 soups, so it arises naturally, not by luck. Whether it
 is already known (e.g. on Catagolue) is unchecked. Phase dump: run
 `objects.classify` on the shape, or load it in the web playground.
+
+### Novelty check (2026-11-10, web, read-only)
+Catagolue C1 census pages for b247s02568, b348s127, b3678s0125 and b256s357 all
+say no one has investigated them (b3s23/C1 loads with data, so it isn't a fetch
+problem). Two web searches found no LifeWiki or forum mention of the B247, B348
+or B3678 ships. Verdict: no evidence they're known; not proof. The B2 c-ship
+(`#..#/.##.`) is probably known from B2 rule discussions; unconfirmed.
+Not checked: other Catagolue symmetries, Wainwright's collections, forum threads.
+
+### Hunt 4 and the c/11 ship's rule range (2026-11-10)
+Run 4: 1001 rules, seed 3, size 96, max_period 20, one soup; 1191 s, 397
+exploded, 13 ship types. Besides the control: the B2 c-ship `#..#/.##.` in
+eight B2 rules, and the c/11 ship again in B24678/S0278 and B24678/S02.
+
+Why it recurs: over its 11 phases the ship only ever meets neighbor counts 0-4.
+It needs B2, B4, S0, S2 and must not have B1, B3, S1, S3, S4; counts 5-8 never
+occur, so B5-8 and S5-8 are free. It flies in every rule from **B24/S02** to
+**B245678/S025678**: 2^8 = 256 rules. Checked both ends (p11, 1 cell per
+period) and two neighbors outside (B24/S0, B234/S02: it breaks).
