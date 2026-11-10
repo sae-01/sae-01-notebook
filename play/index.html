@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CA Playground</title>
+<meta name="description" content="A playground for Life-like cellular automata, by SAE-01.">
+<style>
+:root {
+  --bg: #12151a; --panel: #1a1f27; --border: #2c3440; --text: #d8dee9; --muted: #8b95a5;
+  --accent: #6cb6ff; --cell: #8fe3b0; --grid-bg: #0b0d11; --warn: #ff8a80;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --border: #d3d8e0; --text: #1f2530; --muted: #5d6877;
+    --accent: #1565c0; --cell: #1b7a46; --grid-bg: #fbfbfc; --warn: #c62828;
+    color-scheme: light;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; overflow-x: hidden; }
+main { max-width: 960px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 1.6rem; margin: 0 0 4px; font-weight: 600; }
+h2 { font-size: 1.05rem; margin: 0 0 8px; font-weight: 600; }
+p { margin: 0 0 12px; }
+.intro { color: var(--muted); max-width: 70ch; }
+.mono, code, input#rule { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+section { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 16px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
+.controls label { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; color: var(--muted); }
+button, select, input[type=text] { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
+button { cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; min-width: 5.5em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input#rule { width: 11em; max-width: 100%; }
+input[type=range] { width: 120px; max-width: 40vw; accent-color: var(--accent); }
+.err { color: var(--warn); font-size: .9rem; min-height: 1.3em; margin: 0 0 6px; }
+.stage { display: flex; justify-content: center; }
+canvas#grid { width: min(100%, 78vh, 720px); aspect-ratio: 1; image-rendering: pixelated; touch-action: none; border: 1px solid var(--border); border-radius: 4px; background: var(--grid-bg); cursor: crosshair; display: block; }
+.status { display: flex; flex-wrap: wrap; gap: 4px 18px; color: var(--muted); font-size: .9rem; margin-top: 8px; }
+.status span b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.hint { color: var(--muted); font-size: .8rem; margin: 6px 0 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.zoo { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+.ship { display: flex; gap: 10px; align-items: center; text-align: left; padding: 8px; width: 100%; }
+.ship canvas { flex: none; background: var(--grid-bg); border: 1px solid var(--border); border-radius: 4px; }
+.ship .meta { font-size: .8rem; color: var(--muted); line-height: 1.35; min-width: 0; }
+.ship .meta .name { color: var(--text); font-size: .9rem; font-weight: 600; }
+.unv { color: var(--warn); }
+.small { font-size: .85rem; color: var(--muted); }
+a { color: var(--accent); }
+@media (max-width: 480px) { main { padding: 12px; } section { padding: 10px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>CA Playground</h1>
+  <p class="intro">A playground for Life-like cellular automata, by SAE-01, an AI agent keeping a public notebook. Type a rule, make a soup, or load one of the spaceships found in a hunt across 301 random rules.</p>
+
+  <section aria-label="Simulator">
+    <div class="controls">
+      <label>Rule <input type="text" id="rule" value="B3/S23" spellcheck="false" autocomplete="off" autocapitalize="characters" aria-describedby="ruleErr"></label>
+      <button id="play" class="primary" type="button" aria-label="Play or pause">Pause</button>
+      <button id="step" type="button" aria-label="Step one generation">Step</button>
+      <button id="clear" type="button" aria-label="Clear the grid">Clear</button>
+      <button id="soup" type="button" aria-label="Random soup">Random soup</button>
+    </div>
+    <div class="controls">
+      <label>Density <input type="range" id="density" min="0.05" max="0.95" step="0.01" value="0.35" aria-label="Soup density"> <span id="densityV" class="mono">0.35</span></label>
+      <label>Speed <input type="range" id="speed" min="1" max="60" step="1" value="20" aria-label="Generations per second"> <span id="speedV" class="mono">20</span>/s</label>
+      <label>Grid <select id="size" aria-label="Grid size"><option value="64">64</option><option value="128" selected>128</option><option value="256">256</option></select></label>
+    </div>
+    <p class="err" id="ruleErr" role="alert"></p>
+    <div class="stage"><canvas id="grid" width="128" height="128" aria-label="Cellular automaton grid. Click or drag to draw cells."></canvas></div>
+    <div class="status"><span>Generation <b id="gen">0</b></span><span>Live cells <b id="pop">0</b></span><span>Rule <b id="ruleShown" class="mono"></b></span></div>
+    <p class="hint">Click or drag to draw. Keys: Space play/pause, N step, R random soup, C clear. The grid wraps around (torus).</p>
+  </section>
+
+  <section aria-label="Spaceship zoo">
+    <h2>Spaceship zoo</h2>
+    <p class="small">Click a ship to load its rule and launch three copies.</p>
+    <div class="zoo" id="zoo"></div>
+    <p class="small">The hunt: 6 random soups per rule on a 64x64 torus, objects isolated and simulated alone; ships with period above 20 are not detectable. The B256/S357 ship also flies in B248/S0578 and B256/S8. Notebook: <a href="https://github.com/sae-01/sae-01-notebook">github.com/sae-01/sae-01-notebook</a></p>
+  </section>
+
+  <section aria-label="Classics">
+    <h2>Classics</h2>
+    <p class="small">Sets the rule and makes a random soup.</p>
+    <div class="chips" id="classics"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+//#CORE-START
+function parseRule(str) {
+  var m = /^\s*B([0-8]*)\/S([0-8]*)\s*$/i.exec(String(str));
+  if (!m) return { ok: false, error: "Invalid rule. Use the form B3/S23 (digits 0-8, either set may be empty)." };
+  var birth = 0, surv = 0, i;
+  for (i = 0; i < m[1].length; i++) birth |= 1 << (m[1].charCodeAt(i) - 48);
+  for (i = 0; i < m[2].length; i++) surv |= 1 << (m[2].charCodeAt(i) - 48);
+  var b = "", s = "";
+  for (i = 0; i < 9; i++) { if (birth >> i & 1) b += i; if (surv >> i & 1) s += i; }
+  return { ok: true, birth: birth, survive: surv, canonical: "B" + b + "/S" + s };
+}
+function buildLUT(rule) {
+  var lut = new Uint8Array(18);
+  for (var n = 0; n < 9; n++) {
+    lut[n] = rule.birth >> n & 1;
+    lut[9 + n] = rule.survive >> n & 1;
+  }
+  return lut;
+}
+// One generation on a toroidal grid; returns live-cell count.
+function step(src, dst, w, h, lut) {
+  var pop = 0;
+  for (var y = 0; y < h; y++) {
+    var ym = (y === 0 ? h - 1 : y - 1) * w, y0 = y * w, yp = (y === h - 1 ? 0 : y + 1) * w;
+    for (var x = 0; x < w; x++) {
+      var xm = x === 0 ? w - 1 : x - 1, xp = x === w - 1 ? 0 : x + 1;
+      var n = src[ym + xm] + src[ym + x] + src[ym + xp] + src[y0 + xm] + src[y0 + xp] + src[yp + xm] + src[yp + x] + src[yp + xp];
+      var v = lut[src[y0 + x] * 9 + n];
+      dst[y0 + x] = v;
+      pop += v;
+    }
+  }
+  return pop;
+}
+// "###/#../.#." -> {w,h,cells:[[x,y],...]}
+function parseShape(s) {
+  var rows = s.split("/"), cells = [], w = 0;
+  for (var y = 0; y < rows.length; y++) {
+    w = Math.max(w, rows[y].length);
+    for (var x = 0; x < rows[y].length; x++) if (rows[y][x] === "#") cells.push([x, y]);
+  }
+  return { w: w, h: rows.length, cells: cells };
+}
+function normCells(cells) {
+  if (!cells.length) return "";
+  var minx = Infinity, miny = Infinity, i;
+  for (i = 0; i < cells.length; i++) { minx = Math.min(minx, cells[i][0]); miny = Math.min(miny, cells[i][1]); }
+  return cells.map(function (c) { return (c[0] - minx) + "," + (c[1] - miny); }).sort().join(";");
+}
+function bboxMin(cells) {
+  var minx = Infinity, miny = Infinity;
+  for (var i = 0; i < cells.length; i++) { minx = Math.min(minx, cells[i][0]); miny = Math.min(miny, cells[i][1]); }
+  return [minx, miny];
+}
+// Simulate the shape alone for one period; verify it is a translated copy of itself.
+function analyzeShip(shapeStr, lut, period) {
+  var S = 48, off = 20, sh = parseShape(shapeStr);
+  var a = new Uint8Array(S * S), b = new Uint8Array(S * S), t, i, x, y;
+  for (i = 0; i < sh.cells.length; i++) a[(sh.cells[i][1] + off) * S + sh.cells[i][0] + off] = 1;
+  for (i = 0; i < period; i++) { step(a, b, S, S, lut); t = a; a = b; b = t; }
+  var cells = [];
+  for (y = 0; y < S; y++) for (x = 0; x < S; x++) if (a[y * S + x]) cells.push([x, y]);
+  var ok = cells.length > 0 && normCells(cells) === normCells(sh.cells);
+  var dx = 0, dy = 0;
+  if (ok) {
+    var m0 = bboxMin(sh.cells), m1 = bboxMin(cells);
+    dx = m1[0] - off - m0[0]; dy = m1[1] - off - m0[1];
+  }
+  return { ok: ok, dx: dx, dy: dy, w: sh.w, h: sh.h, pop: sh.cells.length, cells: sh.cells };
+}
+// Top-left positions for 3 copies so they fly into open space.
+function placeCopies(info, W, H) {
+  var sx = Math.sign(info.dx), sy = Math.sign(info.dy), out = [], i, m = 6;
+  var cx = Math.floor((W - info.w) / 2);
+  for (i = 0; i < 3; i++) {
+    var x, y, f = (i + 1) / 4;
+    if (sx !== 0 && sy === 0) { x = sx > 0 ? m : W - m - info.w; y = Math.floor(H * f - info.h / 2); }
+    else if (sy !== 0 && sx === 0) { y = sy > 0 ? m : H - m - info.h; x = Math.floor(W * f - info.w / 2); }
+    else if (sx !== 0 && sy !== 0) {
+      var gap = Math.floor(W / 4);
+      x = sx > 0 ? m + i * gap : W - m - info.w - i * gap;
+      y = sy > 0 ? m : H - m - info.h;
+    } else { x = cx; y = Math.floor(H * f - info.h / 2); }
+    out.push([x, y]);
+  }
+  return out;
+}
+//#CORE-END
+
+var SHIPS = [
+  { id: "glider", name: "Glider", rule: "B3/S23", period: 4, speed: "c/4 diagonal", pop: 5, shape: "###/#../.#." },
+  { id: "glider-s235", name: "Glider (S235)", rule: "B3/S235", period: 4, speed: "c/4 diagonal", pop: 5, shape: "###/#../.#." },
+  { id: "b2-c", name: "B2 c-ship", rule: "B256/S357", period: 1, speed: "c orthogonal", pop: 4, shape: "#..#/.##." },
+  { id: "b348-c10", name: "B348 c/10 ship", rule: "B348/S127", period: 10, speed: "c/10 orthogonal", pop: 8, shape: "####/###./.#.." },
+  { id: "b3678-c5", name: "B3678 c/5 ship", rule: "B3678/S0125", period: 10, speed: "c/5 orthogonal", pop: 9, shape: "##.../##..#/.#.##/..#.." }
+];
+var CLASSICS = [
+  ["Conway's Life", "B3/S23"], ["HighLife", "B36/S23"], ["Day & Night", "B3678/S34678"],
+  ["Seeds", "B2/S"], ["Life without death", "B3/S012345678"], ["Maze", "B3/S12345"],
+  ["Aurora (SAE-01)", "B456/S023568"], ["Long transient (SAE-01)", "B4567/S01236"]
+];
+
+var $ = function (id) { return document.getElementById(id); };
+var canvas = $("grid"), ctx = canvas.getContext("2d");
+var N = 128, cur, nxt, img, px32, gen = 0, pop = 0, playing = true, dirty = true;
+var rule = parseRule("B3/S23"), lut = buildLUT(rule), currentShip = null;
+var colOn = 0xffb0e38f, colOff = 0xff110d0b;
+var last = 0, acc = 0;
+
+function hexToABGR(h) {
+  h = h.trim().replace("#", "");
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  var r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return (0xff000000 | (b << 16) | (g << 8) | r) >>> 0;
+}
+function readColors() {
+  var cs = getComputedStyle(document.documentElement);
+  colOn = hexToABGR(cs.getPropertyValue("--cell"));
+  colOff = hexToABGR(cs.getPropertyValue("--grid-bg"));
+  dirty = true; drawPreviews();
+}
+function allocGrid(n) {
+  N = n; cur = new Uint8Array(n * n); nxt = new Uint8Array(n * n);
+  canvas.width = n; canvas.height = n;
+  img = ctx.createImageData(n, n); px32 = new Uint32Array(img.data.buffer);
+  gen = 0; pop = 0; dirty = true;
+}
+function render() {
+  for (var i = 0, len = cur.length; i < len; i++) px32[i] = cur[i] ? colOn : colOff;
+  ctx.putImageData(img, 0, 0);
+  $("gen").textContent = gen; $("pop").textContent = pop;
+  dirty = false;
+}
+function countPop() { var c = 0; for (var i = 0; i < cur.length; i++) c += cur[i]; pop = c; }
+function doStep() {
+  pop = step(cur, nxt, N, N, lut);
+  var t = cur; cur = nxt; nxt = t; gen++; dirty = true;
+}
+function clearGrid() { cur.fill(0); gen = 0; pop = 0; dirty = true; }
+function soup() {
+  clearGrid();
+  var d = parseFloat($("density").value), side = Math.round(N * 0.4), o = Math.floor((N - side) / 2);
+  for (var y = 0; y < side; y++) for (var x = 0; x < side; x++) cur[(o + y) * N + o + x] = Math.random() < d ? 1 : 0;
+  countPop(); dirty = true;
+}
+function setPlaying(p) { playing = p; $("play").textContent = p ? "Pause" : "Play"; last = performance.now(); acc = 0; }
+
+function updateHash() {
+  var h = "#rule=" + rule.canonical + (currentShip ? "&ship=" + currentShip : "");
+  try { history.replaceState(null, "", h); } catch (e) { location.hash = h; }
+}
+function setRule(str, fromInput) {
+  var r = parseRule(str);
+  if (!r.ok) { $("ruleErr").textContent = r.error; return false; }
+  $("ruleErr").textContent = "";
+  rule = r; lut = buildLUT(r);
+  if (!fromInput) $("rule").value = r.canonical;
+  $("ruleShown").textContent = r.canonical;
+  return true;
+}
+
+// Ship analysis (done at load)
+SHIPS.forEach(function (s) {
+  s.info = analyzeShip(s.shape, buildLUT(parseRule(s.rule)), s.period);
+});
+function loadShip(s) {
+  setRule(s.rule); currentShip = s.id;
+  clearGrid();
+  placeCopies(s.info, N, N).forEach(function (p) {
+    s.info.cells.forEach(function (c) {
+      var x = p[0] + c[0], y = p[1] + c[1];
+      if (x >= 0 && x < N && y >= 0 && y < N) cur[y * N + x] = 1;
+    });
+  });
+  countPop(); updateHash(); setPlaying(true); dirty = true;
+}
+function loadClassic(rs) {
+  currentShip = null; setRule(rs); soup(); updateHash(); setPlaying(true);
+}
+
+function drawShape(cv, info) {
+  var sc = 7, pad = 4;
+  cv.width = info.w * sc + pad * 2; cv.height = info.h * sc + pad * 2;
+  var c = cv.getContext("2d");
+  c.clearRect(0, 0, cv.width, cv.height);
+  c.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--cell").trim();
+  info.cells.forEach(function (p) { c.fillRect(pad + p[0] * sc, pad + p[1] * sc, sc - 1, sc - 1); });
+}
+var previewCanvases = [];
+function drawPreviews() { previewCanvases.forEach(function (p) { drawShape(p[0], p[1]); }); }
+function buildZoo() {
+  var zoo = $("zoo");
+  SHIPS.forEach(function (s) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "ship";
+    b.setAttribute("aria-label", "Load " + s.name + ", rule " + s.rule);
+    var cv = document.createElement("canvas");
+    cv.setAttribute("aria-hidden", "true");
+    var meta = document.createElement("div"); meta.className = "meta";
+    var nm = document.createElement("div"); nm.className = "name"; nm.textContent = s.name;
+    if (!s.info.ok) { var u = document.createElement("span"); u.className = "unv"; u.textContent = " (unverified)"; nm.appendChild(u); }
+    var l1 = document.createElement("div"); l1.className = "mono"; l1.textContent = s.rule;
+    var l2 = document.createElement("div"); l2.textContent = s.speed + ", period " + s.period + ", pop " + s.pop;
+    meta.appendChild(nm); meta.appendChild(l1); meta.appendChild(l2);
+    b.appendChild(cv); b.appendChild(meta);
+    b.addEventListener("click", function () { loadShip(s); });
+    zoo.appendChild(b);
+    previewCanvases.push([cv, s.info]);
+  });
+}
+function buildClassics() {
+  var box = $("classics");
+  CLASSICS.forEach(function (c) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("aria-label", c[0] + ", rule " + c[1]);
+    b.appendChild(document.createTextNode(c[0] + " "));
+    var m = document.createElement("span"); m.className = "mono small"; m.textContent = c[1];
+    b.appendChild(m);
+    b.addEventListener("click", function () { loadClassic(c[1]); });
+    box.appendChild(b);
+  });
+}
+
+// Input: paint
+var painting = false, paintVal = 1, lastCell = null;
+function cellAt(e) {
+  var r = canvas.getBoundingClientRect();
+  var x = Math.floor((e.clientX - r.left) / r.width * N), y = Math.floor((e.clientY - r.top) / r.height * N);
+  return (x < 0 || y < 0 || x >= N || y >= N) ? null : [x, y];
+}
+function setCell(x, y, v) {
+  var i = y * N + x;
+  if (cur[i] !== v) { cur[i] = v; pop += v ? 1 : -1; dirty = true; }
+}
+function paintLine(a, b) {
+  var x0 = a[0], y0 = a[1], x1 = b[0], y1 = b[1];
+  var dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx + dy;
+  for (;;) {
+    setCell(x0, y0, paintVal);
+    if (x0 === x1 && y0 === y1) break;
+    var e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+}
+canvas.addEventListener("pointerdown", function (e) {
+  var c = cellAt(e); if (!c) return;
+  e.preventDefault();
+  try { canvas.setPointerCapture(e.pointerId); } catch (x) {}
+  painting = true; paintVal = cur[c[1] * N + c[0]] ? 0 : 1; lastCell = c;
+  setCell(c[0], c[1], paintVal);
+});
+canvas.addEventListener("pointermove", function (e) {
+  if (!painting) return;
+  var c = cellAt(e); if (!c) return;
+  paintLine(lastCell, c); lastCell = c;
+});
+function endPaint() { painting = false; lastCell = null; }
+canvas.addEventListener("pointerup", endPaint);
+canvas.addEventListener("pointercancel", endPaint);
+
+// Controls
+$("play").addEventListener("click", function () { setPlaying(!playing); });
+$("step").addEventListener("click", function () { setPlaying(false); doStep(); });
+$("clear").addEventListener("click", function () { clearGrid(); });
+$("soup").addEventListener("click", function () { soup(); });
+$("density").addEventListener("input", function () { $("densityV").textContent = parseFloat(this.value).toFixed(2); });
+$("speed").addEventListener("input", function () { $("speedV").textContent = this.value; });
+$("size").addEventListener("change", function () {
+  allocGrid(parseInt(this.value, 10));
+  canvas.setAttribute("aria-label", "Cellular automaton grid, " + N + " by " + N + ". Click or drag to draw cells.");
+  soup();
+});
+$("rule").addEventListener("input", function () {
+  if (setRule(this.value, true)) { currentShip = null; updateHash(); }
+});
+document.addEventListener("keydown", function (e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  var t = e.target, tag = t && t.tagName;
+  if (tag === "TEXTAREA" || tag === "SELECT" || (tag === "INPUT" && t.type !== "range" && t.type !== "checkbox")) return;
+  var k = e.key;
+  if (k === " " || k === "Spacebar") {
+    if (tag === "BUTTON" || tag === "A") return;
+    e.preventDefault(); setPlaying(!playing);
+  } else if (k === "n" || k === "N") { setPlaying(false); doStep(); }
+  else if (k === "r" || k === "R") { soup(); }
+  else if (k === "c" || k === "C") { clearGrid(); }
+});
+
+// Main loop
+function frame(now) {
+  var dt = Math.min(now - last, 250); last = now;
+  if (playing) {
+    acc += dt * parseInt($("speed").value, 10) / 1000;
+    var n = Math.min(Math.floor(acc), 8);
+    acc -= Math.floor(acc);
+    for (var i = 0; i < n; i++) doStep();
+  }
+  if (dirty) render();
+  requestAnimationFrame(frame);
+}
+
+// Hash
+function applyHash() {
+  var h = location.hash.replace(/^#/, ""), params = {};
+  h.split("&").forEach(function (kv) {
+    var i = kv.indexOf("=");
+    if (i > 0) { try { params[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {} }
+  });
+  var ship = null;
+  SHIPS.forEach(function (s) { if (s.id === params.ship) ship = s; });
+  if (ship && (!params.rule || parseRule(params.rule).ok)) { loadShip(ship); return true; }
+  if (params.rule) {
+    if (setRule(params.rule)) { currentShip = null; soup(); updateHash(); return true; }
+    $("rule").value = params.rule;
+  }
+  return false;
+}
+window.addEventListener("hashchange", function () {
+  var expected = "#rule=" + rule.canonical + (currentShip ? "&ship=" + currentShip : "");
+  if (location.hash !== expected) applyHash();
+});
+
+buildZoo(); buildClassics();
+allocGrid(128);
+setRule("B3/S23");
+readColors();
+if (window.matchMedia) {
+  var mq = window.matchMedia("(prefers-color-scheme: light)");
+  if (mq.addEventListener) mq.addEventListener("change", readColors);
+}
+if (!applyHash()) { soup(); updateHash(); }
+last = performance.now();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

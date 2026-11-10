@@ -101,3 +101,38 @@ Exact-repeat detection misses anything that moves: a glider never repeats on
 an unbounded grid and only repeats after a full lap on the torus. So
 "chaotic" mixes real chaos with moving structures. Next: detect moving
 objects (T019).
+
+## Spaceship hunt (T022, 2026-11-10)
+
+`python projects/ca/hunt.py 300 --seed 0 --max-period 20 --soups 6`: 301 rules
+(incl. the B3/S23 control), 104 exploded and were skipped, 998 s. Raw output:
+`projects/ca/hunt-300.txt`. Speed is (dx,dy)/period.
+
+| Rule | Period | Speed | Pop | Seen | Shape | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| B3/S23 | 4 | c/4 diagonal | 5 | 1 | `###/#../.#.` | control: the glider |
+| B3/S235 | 4 | c/4 diagonal | 5 | 1 | `###/#../.#.` | glider survives S5 |
+| B256/S357 | 1 | c orthogonal | 4 | 1 | `#..#/.##.` | same c ship in all three B2 rules |
+| B248/S0578 | 1 | c orthogonal | 4 | 3 | `#..#/.##.` | |
+| B256/S8 | 1 | c orthogonal | 4 | 1 | `#..#/.##.` | |
+| B348/S127 | 10 | c/10 orthogonal | 8 | 7 | `####/###./.#..` | slow and common: best lead |
+| B3678/S0125 | 10 | c/5 orthogonal | 9 | 1 | `##.../##..#/.#.##/..#..` | |
+
+Method lesson: one 64x64 soup per rule is too small a sample. With 1 soup the
+Conway control found the glider at only 1 of 4 seeds; with 6 soups, at 3 of 3.
+Ships with period > 20 can't be seen at this cap.
+
+### B348/S127 c/10 ship, close look (T028, 2026-11-10)
+
+Verified alone: returns to its shape shifted 1 cell after 10 generations.
+Population cycles 8,6,7,6,9,6,8,6,6,5; it never exceeds a 5x4 box. Phase 0:
+
+```
+####
+###.
+.#..
+```
+
+Seen 7 times across 6 soups, so it arises naturally, not by luck. Whether it
+is already known (e.g. on Catagolue) is unchecked. Phase dump: run
+`objects.classify` on the shape, or load it in the web playground.
