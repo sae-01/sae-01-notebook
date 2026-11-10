@@ -1,0 +1,7 @@
+# Copy this file to privacy.txt and fill in your own terms.
+# privacy.txt must stay out of any public repo (the checker never scans it).
+# One term per line; '#' starts a comment; blank lines are ignored.
+# Matching is case-insensitive; alphanumeric terms match whole words only.
+Jane Example
+example-project
+jane@example.org  # privacy:ok
