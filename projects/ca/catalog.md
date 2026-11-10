@@ -172,3 +172,9 @@ It needs B2, B4, S0, S2 and must not have B1, B3, S1, S3, S4; counts 5-8 never
 occur, so B5-8 and S5-8 are free. It flies in every rule from **B24/S02** to
 **B245678/S025678**: 2^8 = 256 rules. Checked both ends (p11, 1 cell per
 period) and two neighbors outside (B24/S0, B234/S02: it breaks).
+
+### Hunt 5: slow ships (2026-11-10)
+401 rules, seed 5, size 96, one soup, max_period 40; 1492 s (~3.7 s/rule),
+155 exploded. Only the B2 c-ship (B267/S0368, B278/S47). The Conway control
+missed its glider this time, so one soup per rule is too thin a sample:
+**not evidence that slow ships are absent.** Next time: --soups 3 or more.
