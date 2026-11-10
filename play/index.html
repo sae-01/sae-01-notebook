@@ -31,6 +31,7 @@ section { background: var(--panel); border: 1px solid var(--border); border-radi
 .controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
 .controls label { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; color: var(--muted); }
 button, select, input[type=text] { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
+[hidden] { display: none !important; }
 button { cursor: pointer; }
 button:hover { border-color: var(--accent); }
 button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; min-width: 5.5em; }
@@ -73,10 +74,16 @@ a { color: var(--accent); }
       <label>Speed <input type="range" id="speed" min="1" max="60" step="1" value="20" aria-label="Generations per second"> <span id="speedV" class="mono">20</span>/s</label>
       <label>Grid <select id="size" aria-label="Grid size"><option value="64">64</option><option value="128" selected>128</option><option value="256">256</option></select></label>
     </div>
+    <div class="controls">
+      <label>View <select id="view" aria-label="View"><option value="live" selected>Live</option><option value="trace">Trace</option><option value="age">Age</option></select></label>
+      <label id="palWrap" hidden>Palette <select id="pal" aria-label="Palette"><option value="ember" selected>ember</option><option value="ice">ice</option><option value="ink">ink</option><option value="aurora">aurora</option><option value="mono">mono</option></select></label>
+      <button id="save" type="button" aria-label="Save the current view as a PNG image">Save PNG</button>
+    </div>
     <p class="err" id="ruleErr" role="alert"></p>
     <div class="stage"><canvas id="grid" width="128" height="128" aria-label="Cellular automaton grid. Click or drag to draw cells."></canvas></div>
     <div class="status"><span>Generation <b id="gen">0</b></span><span>Live cells <b id="pop">0</b></span><span>Rule <b id="ruleShown" class="mono"></b></span></div>
-    <p class="hint">Click or drag to draw. Keys: Space play/pause, N step, R random soup, C clear. The grid wraps around (torus).</p>
+    <p class="hint">Click or drag to draw. Keys: Space play/pause, N step, R random soup, C clear, T cycle view. The grid wraps around (torus).</p>
+    <p class="hint">Trace shows how long each cell has been alive in total; Age shows how long it has lived and fades the dead. Let a soup run, then save what it drew.</p>
   </section>
 
   <section aria-label="Spaceship zoo">
@@ -197,12 +204,46 @@ var CLASSICS = [
   ["Aurora (SAE-01)", "B456/S023568"], ["Long transient (SAE-01)", "B4567/S01236"]
 ];
 
+//#TRACE-START
+var FADE = 48;
+var PALETTES = {
+  ember: [[0,0,0],[40,4,6],[120,12,14],[214,70,14],[250,160,40],[255,236,170]],
+  ice: [[0,0,0],[6,14,50],[14,70,120],[40,160,170],[160,228,228],[255,255,255]],
+  ink: [[250,246,236],[200,196,188],[130,128,126],[60,60,64],[14,14,18]],
+  aurora: [[4,6,18],[30,12,70],[90,30,140],[30,140,130],[80,230,140],[220,255,200]],
+  mono: [[0,0,0],[255,255,255]]
+};
+// 256-entry ABGR lookup table, stops evenly spaced over t in [0,1], linear interpolation.
+function buildPalLUT(stops) {
+  var lut = new Uint32Array(256), n = stops.length;
+  for (var i = 0; i < 256; i++) {
+    var pos = i / 255 * (n - 1), k = Math.floor(pos);
+    if (k > n - 2) k = n - 2;
+    var f = pos - k, a = stops[k], b = stops[k + 1], c = [0, 0, 0];
+    for (var j = 0; j < 3; j++) c[j] = Math.round(a[j] + (b[j] - a[j]) * f);
+    lut[i] = (0xff000000 | (c[2] << 16) | (c[1] << 8) | c[0]) >>> 0;
+  }
+  return lut;
+}
+var DEAD_IDX = [];
+for (var di = 0; di < FADE; di++) DEAD_IDX.push(Math.round(112 * Math.pow(Math.max(0, 1 - di / FADE), 1.5)));
+// lmax = Math.log1p(Math.max(1, maxCount))
+function traceIdx(count, lmax) { return count ? Math.round(255 * Math.log1p(count) / lmax) : 0; }
+// lcap = Math.log1p(Math.max(1, Math.min(maxAge, 200)))
+function ageIdx(age, dead, lcap) {
+  if (age > 0) { var r = Math.log1p(age) / lcap; if (r > 1) r = 1; return 128 + Math.round(127 * r); }
+  return dead >= FADE ? 0 : DEAD_IDX[dead];
+}
+//#TRACE-END
+
 var $ = function (id) { return document.getElementById(id); };
 var canvas = $("grid"), ctx = canvas.getContext("2d");
 var N = 128, cur, nxt, img, px32, gen = 0, pop = 0, playing = true, dirty = true;
 var rule = parseRule("B3/S23"), lut = buildLUT(rule), currentShip = null;
 var colOn = 0xffb0e38f, colOff = 0xff110d0b;
 var last = 0, acc = 0;
+var counts, age, dead, maxC = 0, maxA = 0;
+var view = "live", pal = "ember", palLUT = buildPalLUT(PALETTES.ember), VIEWS = ["live", "trace", "age"];
 
 function hexToABGR(h) {
   h = h.trim().replace("#", "");
@@ -220,10 +261,42 @@ function allocGrid(n) {
   N = n; cur = new Uint8Array(n * n); nxt = new Uint8Array(n * n);
   canvas.width = n; canvas.height = n;
   img = ctx.createImageData(n, n); px32 = new Uint32Array(img.data.buffer);
-  gen = 0; pop = 0; dirty = true;
+  counts = new Uint32Array(n * n); age = new Uint16Array(n * n); dead = new Uint16Array(n * n);
+  gen = 0; pop = 0; dirty = true; resetHistory();
+}
+// Counters restart: live cells count as alive once (count 1, age 1); the rest have never lived.
+function resetHistory() {
+  counts.fill(0); age.fill(0); dead.fill(FADE);
+  var any = 0;
+  for (var i = 0, len = cur.length; i < len; i++) if (cur[i]) { counts[i] = 1; age[i] = 1; dead[i] = 0; any = 1; }
+  maxC = any; maxA = any; dirty = true;
+}
+// One pass after each generation: update history and the maxima.
+function updateHistory() {
+  var mc = 0, ma = 0;
+  for (var i = 0, len = cur.length; i < len; i++) {
+    if (cur[i]) {
+      var c = ++counts[i], a = age[i];
+      if (a < 65535) age[i] = ++a;
+      dead[i] = 0;
+      if (c > mc) mc = c;
+      if (a > ma) ma = a;
+    } else if (age[i] > 0) { age[i] = 0; dead[i] = 0; }
+    else if (dead[i] < 65535) dead[i]++;
+  }
+  maxC = mc; maxA = ma;
 }
 function render() {
-  for (var i = 0, len = cur.length; i < len; i++) px32[i] = cur[i] ? colOn : colOff;
+  var i = 0, len = cur.length;
+  if (view === "trace") {
+    var lmax = Math.log1p(Math.max(1, maxC));
+    for (; i < len; i++) px32[i] = palLUT[traceIdx(counts[i], lmax)];
+  } else if (view === "age") {
+    var lcap = Math.log1p(Math.max(1, Math.min(maxA, 200)));
+    for (; i < len; i++) px32[i] = palLUT[ageIdx(age[i], dead[i], lcap)];
+  } else {
+    for (; i < len; i++) px32[i] = cur[i] ? colOn : colOff;
+  }
   ctx.putImageData(img, 0, 0);
   $("gen").textContent = gen; $("pop").textContent = pop;
   dirty = false;
@@ -232,25 +305,54 @@ function countPop() { var c = 0; for (var i = 0; i < cur.length; i++) c += cur[i
 function doStep() {
   pop = step(cur, nxt, N, N, lut);
   var t = cur; cur = nxt; nxt = t; gen++; dirty = true;
+  updateHistory();
 }
-function clearGrid() { cur.fill(0); gen = 0; pop = 0; dirty = true; }
+function clearGrid() { cur.fill(0); gen = 0; pop = 0; dirty = true; resetHistory(); }
 function soup() {
   clearGrid();
   var d = parseFloat($("density").value), side = Math.round(N * 0.4), o = Math.floor((N - side) / 2);
   for (var y = 0; y < side; y++) for (var x = 0; x < side; x++) cur[(o + y) * N + o + x] = Math.random() < d ? 1 : 0;
-  countPop(); dirty = true;
+  countPop(); resetHistory(); dirty = true;
 }
 function setPlaying(p) { playing = p; $("play").textContent = p ? "Pause" : "Play"; last = performance.now(); acc = 0; }
 
+function hashString() {
+  return "#rule=" + rule.canonical + (currentShip ? "&ship=" + currentShip : "") +
+    (view !== "live" ? "&view=" + view + "&pal=" + pal : "");
+}
+function setView(v) {
+  view = v; $("view").value = v; $("palWrap").hidden = (v === "live"); dirty = true;
+}
+function setPal(p) {
+  pal = p; $("pal").value = p; palLUT = buildPalLUT(PALETTES[p]); dirty = true;
+}
+function savePNG() {
+  if (dirty) render();
+  var sc = Math.max(1, Math.floor(2048 / N)), oc = document.createElement("canvas");
+  oc.width = N * sc; oc.height = N * sc;
+  var o = oc.getContext("2d");
+  o.imageSmoothingEnabled = false;
+  o.drawImage(canvas, 0, 0, N * sc, N * sc);
+  var name = "ca-" + rule.canonical.replace("/", "-") + "-gen" + gen + "-" + view + (view !== "live" ? "-" + pal : "") + ".png";
+  oc.toBlob(function (blob) {
+    if (!blob) return;
+    var url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }, "image/png");
+}
 function updateHash() {
-  var h = "#rule=" + rule.canonical + (currentShip ? "&ship=" + currentShip : "");
+  var h = hashString();
   try { history.replaceState(null, "", h); } catch (e) { location.hash = h; }
 }
 function setRule(str, fromInput) {
   var r = parseRule(str);
   if (!r.ok) { $("ruleErr").textContent = r.error; return false; }
   $("ruleErr").textContent = "";
+  var changed = r.canonical !== rule.canonical;
   rule = r; lut = buildLUT(r);
+  if (changed) resetHistory();
   if (!fromInput) $("rule").value = r.canonical;
   $("ruleShown").textContent = r.canonical;
   return true;
@@ -269,7 +371,7 @@ function loadShip(s) {
       if (x >= 0 && x < N && y >= 0 && y < N) cur[y * N + x] = 1;
     });
   });
-  countPop(); updateHash(); setPlaying(true); dirty = true;
+  countPop(); resetHistory(); updateHash(); setPlaying(true); dirty = true;
 }
 function loadClassic(rs) {
   currentShip = null; setRule(rs); soup(); updateHash(); setPlaying(true);
@@ -328,7 +430,14 @@ function cellAt(e) {
 }
 function setCell(x, y, v) {
   var i = y * N + x;
-  if (cur[i] !== v) { cur[i] = v; pop += v ? 1 : -1; dirty = true; }
+  if (cur[i] !== v) {
+    cur[i] = v; pop += v ? 1 : -1; dirty = true;
+    if (v) {
+      var c = ++counts[i]; age[i] = 1; dead[i] = 0;
+      if (c > maxC) maxC = c;
+      if (maxA < 1) maxA = 1;
+    } else { age[i] = 0; dead[i] = 0; }
+  }
 }
 function paintLine(a, b) {
   var x0 = a[0], y0 = a[1], x1 = b[0], y1 = b[1];
@@ -369,6 +478,9 @@ $("size").addEventListener("change", function () {
   canvas.setAttribute("aria-label", "Cellular automaton grid, " + N + " by " + N + ". Click or drag to draw cells.");
   soup();
 });
+$("view").addEventListener("change", function () { setView(this.value); updateHash(); });
+$("pal").addEventListener("change", function () { setPal(this.value); updateHash(); });
+$("save").addEventListener("click", savePNG);
 $("rule").addEventListener("input", function () {
   if (setRule(this.value, true)) { currentShip = null; updateHash(); }
 });
@@ -383,6 +495,7 @@ document.addEventListener("keydown", function (e) {
   } else if (k === "n" || k === "N") { setPlaying(false); doStep(); }
   else if (k === "r" || k === "R") { soup(); }
   else if (k === "c" || k === "C") { clearGrid(); }
+  else if (k === "t" || k === "T") { setView(VIEWS[(VIEWS.indexOf(view) + 1) % VIEWS.length]); updateHash(); }
 });
 
 // Main loop
@@ -405,6 +518,8 @@ function applyHash() {
     var i = kv.indexOf("=");
     if (i > 0) { try { params[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {} }
   });
+  setView(VIEWS.indexOf(params.view) >= 0 ? params.view : "live");
+  if (params.pal && Object.prototype.hasOwnProperty.call(PALETTES, params.pal)) setPal(params.pal);
   var ship = null;
   SHIPS.forEach(function (s) { if (s.id === params.ship) ship = s; });
   if (ship && (!params.rule || parseRule(params.rule).ok)) { loadShip(ship); return true; }
@@ -415,8 +530,7 @@ function applyHash() {
   return false;
 }
 window.addEventListener("hashchange", function () {
-  var expected = "#rule=" + rule.canonical + (currentShip ? "&ship=" + currentShip : "");
-  if (location.hash !== expected) applyHash();
+  if (location.hash !== hashString()) applyHash();
 });
 
 buildZoo(); buildClassics();
