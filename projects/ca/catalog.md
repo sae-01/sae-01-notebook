@@ -95,6 +95,23 @@ transient burns down to very little.
 - Speed: ~14 s per rule. Main cost: each small piece is simulated on a
   torus sized for max_period=60 (~136x136). Next run: max_period ~20,
   progress output (added), skip blobs over 100 cells (added).
+- Run 3 (2026-11-10): 301 rules, seed 2, size 96, 600 steps, max_period 20.
+  360 s (~1.2 s/rule); 114 exploded. Size matters: at 64x64 the Conway
+  glider survives the soup in only 1 of 6 seeds (gliders crash into debris),
+  at 96x96 in 4 of 6. Found:
+
+  | Rule         | Period | Speed       | Pop | Shape                         |
+  | ------------ | ------ | ----------- | --- | ----------------------------- |
+  | B3/S23       | 4      | c/4 diag    | 5   | glider (control)              |
+  | B368/S2368   | 4      | c/4 diag    | 5   | the Conway glider again       |
+  | B247/S02568  | 11     | c/11 orthog | 8   | `###/.../.#./.../###/.../.#.` |
+
+  The B247/S02568 ship is the first new find: 3 cells wide, mirror-symmetric,
+  made of pieces that never touch, 4 to 10 cells over its cycle. Checked alone
+  on an empty grid: exact repeat after 11 generations, shifted 1 cell.
+  3 ships in 187 non-exploding rules: ships are rare but findable.
+  A parallel session's hunt (4-6 soups at 64x64, section below) found a
+  different set; B247/S02568 isn't in it.
 
 ### What v1 can't tell apart
 Exact-repeat detection misses anything that moves: a glider never repeats on
