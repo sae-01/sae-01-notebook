@@ -92,5 +92,19 @@ class GifTests(unittest.TestCase):
         self._check(self._write(w, h, frames, pal), frames, pal)
 
 
+class RuleRangeTests(unittest.TestCase):
+    def test_c11_ship_range(self):
+        self.assertEqual(ship.rule_range("B247/S02568", "###/.../.#./.../###/.../.#."),
+                         ("B24/S02", "B245678/S025678", 256))
+
+    def test_range_ends_really_fly(self):
+        for rule, shape in [("B3/S23", "###/#../.#."), ("B348/S127", "####/###./.#..")]:
+            lo, hi, n = ship.rule_range(rule, shape)
+            self.assertEqual(n & (n - 1), 0)  # power of two
+            for r in (lo, hi):
+                b, s = ca.parse_rule(r)
+                ship.find_period(b, s, ship.parse_shape(shape))  # raises if not a ship
+
+
 if __name__ == "__main__":
     unittest.main()

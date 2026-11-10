@@ -178,3 +178,18 @@ period) and two neighbors outside (B24/S0, B234/S02: it breaks).
 155 exploded. Only the B2 c-ship (B267/S0368, B278/S47). The Conway control
 missed its glider this time, so one soup per rule is too thin a sample:
 **not evidence that slow ships are absent.** Next time: --soups 3 or more.
+
+### Rule ranges (2026-11-10, `ship.rule_range`)
+The rules in which each ship flies exactly as found: counts the ship never meets
+are free. Control: the glider gives the commonly cited range B3/S23-B3678/S0235678.
+
+| Ship        | Range                         | Rules |
+| ----------- | ----------------------------- | ----- |
+| glider      | B3/S23 - B3678/S0235678       | 256   |
+| B2 c-ship   | B2/S - B245678/S0345678       | 4096  |
+| B348 c/10   | B34/S12 - B34678/S1278        | 32    |
+| B3678 c/5   | B3/S012 - B3678/S0125678      | 128   |
+| B247 c/11   | B24/S02 - B245678/S025678     | 256   |
+
+A wide range explains how often a hunt meets a ship: the B2 c-ship turns up
+everywhere because it flies in 4096 rules.

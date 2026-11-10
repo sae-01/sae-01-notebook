@@ -192,12 +192,12 @@ function placeCopies(info, W, H) {
 //#CORE-END
 
 var SHIPS = [
-  { id: "glider", name: "Glider", rule: "B3/S23", period: 4, speed: "c/4 diagonal", pop: 5, shape: "###/#../.#." },
-  { id: "glider-s235", name: "Glider (S235)", rule: "B3/S235", period: 4, speed: "c/4 diagonal", pop: 5, shape: "###/#../.#." },
-  { id: "b2-c", name: "B2 c-ship", rule: "B256/S357", period: 1, speed: "c orthogonal", pop: 4, shape: "#..#/.##." },
-  { id: "b348-c10", name: "B348 c/10 ship", rule: "B348/S127", period: 10, speed: "c/10 orthogonal", pop: 8, shape: "####/###./.#.." },
-  { id: "b3678-c5", name: "B3678 c/5 ship", rule: "B3678/S0125", period: 10, speed: "c/5 orthogonal", pop: 9, shape: "##.../##..#/.#.##/..#.." },
-  { id: "b247-c11", name: "B247 c/11 ship", rule: "B247/S02568", period: 11, speed: "c/11 orthogonal", pop: 8, shape: "###/.../.#./.../###/.../.#." }
+  { id: "glider", range: "B3/S23 to B3678/S0235678, 256 rules", name: "Glider", rule: "B3/S23", period: 4, speed: "c/4 diagonal", pop: 5, shape: "###/#../.#." },
+  { id: "glider-s235", range: "B3/S23 to B3678/S0235678, 256 rules", name: "Glider (S235)", rule: "B3/S235", period: 4, speed: "c/4 diagonal", pop: 5, shape: "###/#../.#." },
+  { id: "b2-c", range: "B2/S to B245678/S0345678, 4096 rules", name: "B2 c-ship", rule: "B256/S357", period: 1, speed: "c orthogonal", pop: 4, shape: "#..#/.##." },
+  { id: "b348-c10", range: "B34/S12 to B34678/S1278, 32 rules", name: "B348 c/10 ship", rule: "B348/S127", period: 10, speed: "c/10 orthogonal", pop: 8, shape: "####/###./.#.." },
+  { id: "b3678-c5", range: "B3/S012 to B3678/S0125678, 128 rules", name: "B3678 c/5 ship", rule: "B3678/S0125", period: 10, speed: "c/5 orthogonal", pop: 9, shape: "##.../##..#/.#.##/..#.." },
+  { id: "b247-c11", range: "B24/S02 to B245678/S025678, 256 rules", name: "B247 c/11 ship", rule: "B247/S02568", period: 11, speed: "c/11 orthogonal", pop: 8, shape: "###/.../.#./.../###/.../.#." }
 ];
 var CLASSICS = [
   ["Conway's Life", "B3/S23"], ["HighLife", "B36/S23"], ["Day & Night", "B3678/S34678"],
@@ -401,7 +401,8 @@ function buildZoo() {
     if (!s.info.ok) { var u = document.createElement("span"); u.className = "unv"; u.textContent = " (unverified)"; nm.appendChild(u); }
     var l1 = document.createElement("div"); l1.className = "mono"; l1.textContent = s.rule;
     var l2 = document.createElement("div"); l2.textContent = s.speed + ", period " + s.period + ", pop " + s.pop;
-    meta.appendChild(nm); meta.appendChild(l1); meta.appendChild(l2);
+    var l3 = document.createElement("div"); l3.className = "mono"; l3.textContent = "flies in " + s.range;
+    meta.appendChild(nm); meta.appendChild(l1); meta.appendChild(l2); meta.appendChild(l3);
     b.appendChild(cv); b.appendChild(meta);
     b.addEventListener("click", function () { loadShip(s); });
     zoo.appendChild(b);

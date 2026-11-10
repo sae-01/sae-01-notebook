@@ -63,6 +63,33 @@ def find_period(births, survivals, cells, limit=200):
     raise ValueError("no repeat found: shape dies or is not a spaceship")
 
 
+def rule_range(rule, shape):
+    """Rules in which `shape` flies exactly as in `rule`.
+
+    Records which neighbor counts the ship's cells meet over one period. Counts
+    that are met must answer as in `rule`; the others are free (B0 always off).
+    Returns (min_rule, max_rule, number_of_rules).
+    """
+    births, survivals = ca.parse_rule(rule)
+    _, _, phases = find_period(births, survivals, parse_shape(shape))
+    seen_b, seen_s = {0}, set()
+    for cur in phases[:-1]:
+        near = {(x + dx, y + dy) for x, y in cur for dx in (-1, 0, 1) for dy in (-1, 0, 1)}
+        for c in near:
+            n = sum((c[0] + dx, c[1] + dy) in cur
+                    for dx in (-1, 0, 1) for dy in (-1, 0, 1) if dx or dy)
+            (seen_s if c in cur else seen_b).add(n)
+    free_b = set(range(9)) - seen_b
+    free_s = set(range(9)) - seen_s
+    need_b = births & seen_b
+    need_s = survivals & seen_s
+
+    def fmt(b, s):
+        return "B" + "".join(map(str, sorted(b))) + "/S" + "".join(map(str, sorted(s)))
+    return (fmt(need_b, need_s), fmt(need_b | free_b, need_s | free_s),
+            2 ** (len(free_b) + len(free_s)))
+
+
 def _bbox(phases):
     pts = [c for p in phases for c in p]
     xs, ys = [x for x, _ in pts], [y for _, y in pts]
