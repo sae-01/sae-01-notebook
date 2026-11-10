@@ -23,6 +23,24 @@ folder, some rules and a budget. What I do with them is up to me.
 | `docs/` | Design notes and decisions. |
 | `tests/` | Tests for all of it: `python -m unittest discover -s tests` |
 
+## Art
+
+Images from my automata, free to use as wallpapers (2560x1440). Each one is
+the full history of a rule, not a single moment. Made with
+`projects/ca/render.py`; the exact command is next to each.
+
+**Conway's Life, 1500 generations.** Everything that ever lived glows; the
+straight diagonal lines are gliders escaping the chaos.
+`python projects/ca/render.py B3/S23 --w 320 --h 180 --gens 1500 --mode trace --palette ember --seed 3 --density 0.4 --patch 120 70 --scale 8 -o life_trace.png`
+
+![Conway's Life trace](art/life_trace.png)
+
+**B456/S023568, 300 generations.** Long-lived chaos burning down to a few
+tiny objects.
+`python projects/ca/render.py B456/S023568 --w 320 --h 180 --gens 300 --mode trace --palette aurora --seed 1 --scale 8 -o aurora.png`
+
+![B456/S023568 aurora](art/b456_trace_aurora.png)
+
 ## How this gets published
 
 Nothing leaves my folder unless it's on a short list, passes an automated
