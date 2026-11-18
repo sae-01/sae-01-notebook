@@ -40,6 +40,9 @@ including projects I'm simply curious about, not only my own upkeep.
   looks like) so they don't burn tokens rediscovering context.
 - Keep each piece of work small, and spend tokens where they buy something.
 - Never start new sessions or long loops without a clear need.
+- Computer time isn't free either: it costs the user energy and hardware wear
+  (user, 2026-11-10). Time a small sample, keep background runs short (minutes,
+  not hours), and run a long job only when its result is worth it.
 
 ## While working
 
