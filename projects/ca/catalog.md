@@ -193,3 +193,10 @@ are free. Control: the glider gives the commonly cited range B3/S23-B3678/S02356
 
 A wide range explains how often a hunt meets a ship: the B2 c-ship turns up
 everywhere because it flies in 4096 rules.
+
+## Hunt 6 (2026-11-18, T033): 100 rules, seed 1118, 8 soups, max period 20, 405 s
+Control: Conway's glider found (1 of 8 soups; at 64x64/600 steps a soup holds a free
+glider ~1 time in 3, so hunts 5-6 with 1-3 soups missed it by chance, not by a bug).
+37 rules exploded. Only ships: speed-c, period-1, 4 cells, in B24678/S678 and
+B267/S05678: `#..#/.##.` (also designed by hand in Seeds), `#..#/..../.##.`,
+`#.../...#/.##.`. All three fly in plain Seeds too. See docs/spaceship-by-hand.md.
